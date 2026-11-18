@@ -42,6 +42,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export const whoami = () => request<User>('GET', '/whoami')
+// fork: used only by localUser.ts, for the shared account
+export const authenticate = (body: { email: string; password: string }) =>
+  request<{ token: string }>('POST', '/authenticate', body)
+export const register = (body: { username: string; email: string; password: string }) =>
+  request<{ token: string }>('POST', '/register', body)
 export const getCatalog = () => request<Catalog>('GET', '/3ed/catalog')
 export const listTables = () => request<{ open: TableSummary[]; mine: TableSummary[] }>('GET', '/3ed/tables')
 

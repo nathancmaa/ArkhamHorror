@@ -199,7 +199,9 @@ const updateLanguage = async (a: Event) => {
           </div>
         </section>
 
-        <section class="box column danger-zone">
+        <!-- Fork: hidden. Deleting the shared account would wipe every deck and
+             game, and the next page load would just make a fresh one. -->
+        <section v-if="false" class="box column danger-zone">
           <h3 class="danger-title">{{ $t('settingsForm.dangerZone') }}</h3>
           <p>
             {{ $t('settingsForm.dangerZoneDescription') }} <strong>{{ $t('settingsForm.cannotBeUndone') }}</strong>
