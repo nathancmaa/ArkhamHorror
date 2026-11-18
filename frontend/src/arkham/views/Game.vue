@@ -131,6 +131,7 @@ import StoryQuestion from '@/arkham/components/StoryQuestion.vue'
 import AchievementToast from '@/arkham/components/AchievementToast.vue'
 import { achievementEntryScope } from '@/arkham/achievements'
 import DrawSpotlight from '@/arkham/components/DrawSpotlight.vue'
+import { bugIssueUrl } from '@/arkham/bugReport'
 import Draggable from '@/components/Draggable.vue'
 import Menu from '@/components/Menu.vue'
 import Prompt from '@/components/Prompt.vue'
@@ -2431,25 +2432,16 @@ function fileBugFromError() {
   filingBug.value = true
 }
 
-async function fileBug() {
-  submittingBug.value = true
+// Fork: opens an issue on this fork and downloads the scenario export to
+// attach, instead of uploading to upstream's bucket (see arkham/bugReport.ts).
+// The window opens first, while the click still counts as a user gesture.
+function fileBug() {
   filingBug.value = false
-  Api.fileBug(props.gameId)
-    .then((response) => {
-      const title = encodeURIComponent(bugTitle.value)
-      const body = encodeURIComponent(
-        `${bugDescription.value}\n\ngame: ${window.location.href}\nfile: ${response.data}`,
-      )
-      window.open(
-        `https://github.com/halogenandtoast/ArkhamHorror/issues/new?labels=bug&title=${title}&body=${body}&assignee=halogenandtoast&projects=halogenandtoast/2`,
-        '_blank',
-      )
-      submittingBug.value = false
-    })
-    .catch(() => {
-      alert(t('gameBar.bugSubmittingFail'))
-      submittingBug.value = false
-    })
+  const body =
+    `${bugDescription.value}\n\ngame: ${window.location.href}\n\n` +
+    'Attach the arkham-debug.json this downloaded (or Debug → Debug Export (Scenario)).'
+  window.open(bugIssueUrl(bugTitle.value, body), '_blank')
+  debugExport('scenario')
 }
 
 const clearRevealState = () => {

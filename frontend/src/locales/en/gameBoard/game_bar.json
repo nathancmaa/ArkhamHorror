@@ -139,7 +139,7 @@
     "restartScenario": "Restart Scenario",
 
     "fileABug": "File A Bug",
-    "fileBugPart1": "This will store the current game state, and fill in a GitHub issue. You will need a GitHub account in order to proceed.",
+    "fileBugPart1": "This downloads the current game state (arkham-debug.json) and opens a GitHub issue to attach it to. You will need a GitHub account in order to proceed.",
     "fileBugPart2": "It should only take a moment to create the bug and you can resume playing once done.",
     "fileBugPart3": "The uploaded debug file will only include the last 30 steps so please ensure your issue is within that scope or provide additional information for recreating the issue.",
     "bugTitleholder": "A brief title for the bug",
