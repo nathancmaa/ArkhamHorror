@@ -14,8 +14,10 @@ D=/volume1/docker/arkhamhorror
 
 ## Card art on the NAS
 
-Until this is done the app loads art from the upstream CDN, which is what
-`ARKHAM_ASSET_HOST` defaults to.
+The app serves art from this folder by default (`ARKHAM_ASSET_HOST` unset or
+empty), so do steps 1 and 2 before the first deploy, or set
+`ARKHAM_ASSET_HOST=https://assets.arkhamhorror.app` in the stack to use the
+upstream CDN until they are done.
 
 **1. Seed the folder from the web image.** The stack mounts `$D/img` over the
 image's own `img/`, which holds icons, chaos tokens and slots. Copy those out
@@ -44,9 +46,8 @@ It ends with a count of downloaded, skipped and failed files. Re-run it until
 nothing fails. (`en` also lists the third-edition images; they land inside the
 throwaway container and are discarded.)
 
-**3. Switch the app over.** In the Portainer stack, add `ARKHAM_ASSET_HOST`
-with an empty value and redeploy. If Portainer will not keep an empty value,
-use the address you browse to instead, e.g. `http://10.1.2.250:3010`.
+**3. Redeploy the stack** if it was running on the CDN, after removing
+`ARKHAM_ASSET_HOST` from the stack variables (or setting it empty).
 
 **Check:** open a game and look at a card face, a card back, an investigator
 portrait and a location. In the browser's network panel, images should come
