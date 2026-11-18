@@ -65,6 +65,7 @@ import { useStepPoller } from '@/arkham/composables/useStepPoller'
 import { awaitingOrganizer, type SharedEventState } from '@/arkham/types/EpicEvent'
 import { useMenu, type MenuEntry } from '@/composable/menu'
 import { useKeybindings, type HoverAction } from '@/arkham/keybindings'
+import { installBoardAccess } from '@/arkham/boardAccess'
 import {
   assetTarget,
   enemyTarget,
@@ -2860,6 +2861,16 @@ onMounted(() => {
 })
 
 onBeforeRouteLeave(() => close())
+/* Fork: Tab stops, Enter/Space and number keys on the board (boardAccess.ts).
+ * #game only exists once the game has loaded, so follow the element itself. */
+const gameRoot = ref<HTMLElement | null>(null)
+let uninstallBoardAccess: (() => void) | null = null
+watch(gameRoot, (el) => {
+  uninstallBoardAccess?.()
+  uninstallBoardAccess = el ? installBoardAccess(el) : null
+})
+onUnmounted(() => uninstallBoardAccess?.())
+
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyPress)
   document.removeEventListener('mousemove', onMove)
@@ -2888,7 +2899,7 @@ onUnmounted(() => {
       </section>
     </div>
   </div>
-  <div id="game" v-else-if="ready && game && playerId" :class="{ 'game--inline-modals': inlineModals }" :style="{ '--epic-bar-height': epicBarHeight + 'px' }">
+  <div id="game" ref="gameRoot" v-else-if="ready && game && playerId" :class="{ 'game--inline-modals': inlineModals }" :style="{ '--epic-bar-height': epicBarHeight + 'px' }">
     <dialog v-if="roomAbandoned" class="error-dialog">
       <h2>{{ $t('gameAbandonedTitle') }}</h2>
       <p>{{ $t('gameAbandoned') }}</p>
