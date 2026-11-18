@@ -2,8 +2,17 @@
 # upstream docker-compose.yml. Differences from upstream:
 #   - setup.sql, migrate.sh and migrations are baked into a small db image
 #     (nas/db.Dockerfile) instead of bind-mounted from the checkout.
-#   - The web image is built from this fork and tagged locally; pull_policy
-#     keeps a redeploy from pulling halogenandtoast/arkham-horror instead.
+#   - The web image is NOT built by this stack. Portainer cancels any stack
+#     deploy (build included) after a hard-coded 15 minutes, and the Haskell
+#     backend takes hours cold. Build arkhamhorror-web:nas outside Portainer
+#     first, then deploy; pull_policy: never keeps a redeploy from pulling or
+#     building anything else (including halogenandtoast/arkham-horror).
+#     One-off builder on the NAS (reuses the host BuildKit cache):
+#       docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+#         docker:29-cli docker build --progress=plain \
+#         --build-arg MAIN_SITE_URL=http://10.1.2.250:3010 \
+#         -t arkhamhorror-web:nas \
+#         'https://github.com/nathancmaa/ArkhamHorror.git#<commit>'
 #   - Secrets come from Portainer stack variables, not a secret file:
 #       ARKHAM_PG_PASSWORD  Postgres password (only applied on first init)
 #       ARKHAM_JWT_SECRET   signs login tokens; the built-in default is public
@@ -50,12 +59,9 @@ services:
       POSTGRES_PASSWORD: ${ARKHAM_PG_PASSWORD:?set ARKHAM_PG_PASSWORD in the Portainer stack}
 
   web:
-    build:
-      context: .
-      args:
-        MAIN_SITE_URL: http://10.1.2.250:3010
+    # Prebuilt on the NAS; see the header for the build command.
     image: arkhamhorror-web:nas
-    pull_policy: build
+    pull_policy: never
     container_name: arkhamhorror
     restart: unless-stopped
     environment:
