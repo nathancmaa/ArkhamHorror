@@ -3,7 +3,7 @@ import { ref, computed, Ref } from 'vue';
 import { useUserStore } from '@/stores/user';
 import { useCardStore } from '@/stores/cards';
 import { useRouter } from 'vue-router';
-import { deleteEvent, deleteGame, fetchGames, fetchEvents, fetchNotifications, fetchSpectatableGameActivity } from '@/arkham/api';
+import { deleteEvent, deleteGame, fetchGames, fetchEvents, fetchNotifications } from '@/arkham/api';
 import { cullGameLocalStorage, removeGameLocalStorage } from '@/arkham/localStorage';
 import { isDevBuild } from '@/arkham/displayRules';
 import type { BrokenGameDetails, GameDetails } from '@/arkham/types/Game';
@@ -102,16 +102,8 @@ fetchEvents().then((result) => {
 
 fetchNotifications().then((result) => notifications.value = result.filter((n: AppNotification) => !dismissedNotifications.includes(n.id)))
 
-/* How many games are open to spectators right now, for the badge on the Watch
- * button. The digest is the ids-only probe the watch page polls, so this is a
- * handful of uuids rather than a game apiece -- but it is read once on mount
- * and left alone: the number is an invitation to click through, and the page
- * behind the button is the one that keeps itself current. A failure just leaves
- * the button unbadged. */
-const liveGameCount = ref(0)
-fetchSpectatableGameActivity()
-  .then((activity) => liveGameCount.value = activity.length)
-  .catch(() => liveGameCount.value = 0)
+/* Fork: no Watch button (a home server has no one else's games to watch), so
+ * the spectatable-games count it badged is not fetched either. */
 
 async function deleteGameEvent(game: GameDetails) {
   deleteGame(game.id).then(() => {
@@ -174,17 +166,6 @@ const dismissNotification = (notification: AppNotification) => {
               />
             </div>
             <div class="header-actions">
-              <!-- Other people's games are a page of their own: they are not
-                   yours, and the only thing to do with one is watch it. -->
-              <RouterLink class="secondary-cta watch-cta" to="/watch">
-                <font-awesome-icon icon="eye" />
-                {{ $t('home.watchGames') }}
-                <span
-                  v-if="liveGameCount > 0"
-                  class="watch-count"
-                  :aria-label="$t('home.watchGamesAvailable', { count: liveGameCount }, { plural: liveGameCount })"
-                >{{ liveGameCount }}</span>
-              </RouterLink>
               <button v-if="currentUser" class="secondary-cta" type="button" @click="toggleImportGame">
                 {{ $t('home.loadGame') }}
               </button>

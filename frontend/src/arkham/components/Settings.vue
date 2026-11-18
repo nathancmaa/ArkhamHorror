@@ -13,6 +13,7 @@ import { useSettingsFocus } from '@/composable/settingsFocus'
 import { useSettings, type DrawSpotlightMode } from '@/stores/settings'
 import { keybindingProfile, setKeybindingProfile, type KeybindingProfile } from '@/arkham/keybindings'
 import CardOptionsSettings from '@/arkham/components/CardOptionsSettings.vue'
+import CustomKeys from '@/arkham/components/CustomKeys.vue'
 import ScopedSetting from '@/arkham/components/ScopedSetting.vue'
 
 const props = defineProps<{
@@ -365,6 +366,8 @@ onBeforeUnmount(() => {
               <label for="opt-keybindings-tts">{{ $t('gameBar.settings.keybindingProfile.tts') }}</label>
             </div>
           </div>
+          <!-- fork: your own keys, on top of the profile above -->
+          <CustomKeys />
 
           <div class="toggle-row">
             <div class="toggle-text">

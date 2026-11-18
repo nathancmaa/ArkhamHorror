@@ -158,9 +158,94 @@ export function setKeybindingProfile(profile: KeybindingProfile) {
   if (typeof localStorage !== 'undefined') localStorage.setItem(PROFILE_KEY, profile)
 }
 
+/* Fork: keys of your own choosing, on top of whichever profile is active.
+ *
+ * Only these actions can be remapped: the ones a whole game is played with.
+ * A key you choose beats the profile's: any other action the profile had bound
+ * to the same key loses it (it shows no key in the shortcuts panel), so one
+ * press never means two things. Stored per browser, like the profile.
+ */
+export const REMAPPABLE_ACTIONS: ShortcutAction[] = ['continue', 'undo', 'endTurn', 'draw', 'takeResources']
+
+const CUSTOM_KEY = 'arkhamCustomKeys'
+
+function loadCustomKeys(): Partial<Record<ShortcutAction, Binding>> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? '{}') as Record<string, Binding>
+    const out: Partial<Record<ShortcutAction, Binding>> = {}
+    for (const action of REMAPPABLE_ACTIONS) {
+      const b = parsed[action]
+      if (b && typeof b.key === 'string' && Array.isArray(b.display)) out[action] = { key: b.key, ctrl: !!b.ctrl, display: b.display }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+export const customKeys = ref<Partial<Record<ShortcutAction, Binding>>>(
+  typeof localStorage === 'undefined' ? {} : loadCustomKeys(),
+)
+
+function saveCustomKeys() {
+  try {
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(customKeys.value))
+  } catch {
+    // storage unavailable: the choice lasts for this page only
+  }
+}
+
+/* The binding for a key press, as the settings panel records it. Shift is part
+ * of the produced character already (`U` vs `u`), so only Ctrl is kept. */
+export function bindingFromEvent(event: KeyboardEvent): Binding {
+  const ctrl = event.ctrlKey || event.metaKey
+  const name = event.key === ' ' ? 'space' : event.key
+  return { key: event.key, ctrl, display: ctrl ? ['Ctrl', name] : [name] }
+}
+
+export function setCustomKey(action: ShortcutAction, binding: Binding | null) {
+  const next = { ...customKeys.value }
+  if (binding) {
+    // one key, one action: choosing a key another custom action held moves it
+    for (const other of REMAPPABLE_ACTIONS) {
+      const b = next[other]
+      if (other !== action && b && b.key === binding.key && !!b.ctrl === !!binding.ctrl) delete next[other]
+    }
+    next[action] = binding
+  } else {
+    delete next[action]
+  }
+  customKeys.value = next
+  saveCustomKeys()
+}
+
+const sameKey = (a: Binding, b: Binding) =>
+  !a.code && !b.code && a.key === b.key && !!a.ctrl === !!b.ctrl
+
+function withCustomKeys(profile: Record<ShortcutAction, Binding>): Record<ShortcutAction, Binding> {
+  const custom = customKeys.value
+  const chosen = Object.values(custom) as Binding[]
+  if (chosen.length === 0) return profile
+  const out = { ...profile }
+  for (const action of Object.keys(out) as ShortcutAction[]) {
+    const mine = custom[action]
+    if (mine) out[action] = mine
+    else if (chosen.some((b) => sameKey(b, out[action]))) out[action] = { display: [] }
+  }
+  return out
+}
+
 export function useKeybindings() {
-  const bindings = computed(() => PROFILES[keybindingProfile.value])
-  const hoverBindings = computed(() => HOVER_PROFILES[keybindingProfile.value])
+  const bindings = computed(() => withCustomKeys(PROFILES[keybindingProfile.value]))
+  // a chosen key beats the card-under-the-cursor shortcuts too
+  const hoverBindings = computed<HoverBindings>(() => {
+    const chosen = Object.values(customKeys.value) as Binding[]
+    return Object.fromEntries(
+      Object.entries(HOVER_PROFILES[keybindingProfile.value]).filter(
+        ([, b]) => !chosen.some((c) => sameKey(c, b as Binding)),
+      ),
+    )
+  })
 
   const is = (action: ShortcutAction, event: KeyboardEvent) =>
     matchesBinding(bindings.value[action], event)

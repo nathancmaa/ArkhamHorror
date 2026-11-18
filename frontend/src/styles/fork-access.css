@@ -1,0 +1,55 @@
+/*
+ * Fork: keyboard and touch on the game board. See arkham/boardAccess.ts, which
+ * sets the attributes styled here.
+ *
+ * Unlayered on purpose, like fonts.css: the board's cards are styled by scoped
+ * component rules, which outrank every layer, and a focus ring that a card's
+ * own style hides is no focus ring.
+ */
+
+/* Ultrawide and other big screens. Upstream's card size stops growing at 60px,
+ * which it reaches at 1600px wide, so a 3440x1440 screen draws the same small
+ * cards with a lot of empty table around them. Past 2200px wide the width is
+ * no longer the limit -- the height is -- so cards grow with the height instead,
+ * and the height token is derived from the width so the two cannot disagree.
+ * Narrower screens keep upstream's size. */
+@media (min-width: 2200px) {
+  :root {
+    --card-width: min(calc(2.5vw + 20px), 6.2vh);
+    --card-height: calc(var(--card-width) / var(--card-aspect));
+  }
+}
+
+/* What has the keyboard's attention, drawn the way buttons already draw it. */
+:is(#game, #modal) [data-kb-actionable]:focus-visible {
+  outline: 3px solid var(--select);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* The key that picks each offered option. */
+:is(#game, #modal) [data-choice-key]::before {
+  content: attr(data-choice-key);
+  display: inline-block;
+  min-width: 1.4em;
+  margin-right: 0.45em;
+  padding: 0 0.3em;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 0.85em;
+  line-height: 1.35;
+  text-align: center;
+  opacity: 0.75;
+}
+
+/* A touch screen has no keys to draw, and needs bigger targets. */
+@media (hover: none) and (pointer: coarse) {
+  :is(#game, #modal) [data-choice-key]::before {
+    display: none;
+  }
+
+  :is(#game, #modal) .question-choices button {
+    min-height: 44px;
+    padding-inline: 14px;
+  }
+}

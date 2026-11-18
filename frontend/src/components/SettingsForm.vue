@@ -172,7 +172,8 @@ const updateLanguage = async (a: Event) => {
           </select>
         </section>
 
-        <section class="box column">
+        <!-- fork: hidden; a home server has no one to spectate -->
+        <section v-if="false" class="box column">
           <h3>{{ $t('settingsForm.spectators') }}</h3>
           <p>{{ $t('settingsForm.spectatorsHelp') }}</p>
           <div class="row">

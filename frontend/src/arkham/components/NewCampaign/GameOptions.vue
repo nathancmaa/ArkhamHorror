@@ -706,7 +706,8 @@ function setOptEnabled(o: RecommendedToggle, enabled: boolean) {
         </div>
       </div>
 
-      <div class="card">
+      <!-- fork: hidden; a home server has no one to spectate -->
+      <div v-if="false" class="card">
         <div class="card-title">{{ $t('create.allowSpectators') }}</div>
         <div class="segmented segmented-2">
           <input type="radio" v-model="allowSpectators" :value="false" id="spectatorsNo" />

@@ -16,6 +16,7 @@ import { imgsrc, isTypingTarget } from '@/arkham/helpers';
 import { gameLocalStorageKey } from '@/arkham/localStorage';
 import { IsMobile } from '@/arkham/isMobile';
 import { useDbCardStore } from '@/stores/dbCards'
+import { ACTIONABLE_SELECTOR } from '@/arkham/boardAccess'
 
 export interface Props {
   game: Game
@@ -131,18 +132,7 @@ function getInvestigatorName(cardTitle: string): string {
   return language === 'en'? cardTitle : store.getCardName(cardTitle, "investigator")
 }
 
-// New actionable controls should use data-game-actionable. The class selectors
-// keep existing card/target controls participating while they migrate to the
-// shared marker.
-const ACTIONABLE_SELECTOR = [
-  '[data-game-actionable="true"]',
-  '[class*="--can-interact"]',
-  '[class*="--can-progress"]',
-  '.can-interact',
-  '.deck--can-draw',
-  '.clue--can-spend',
-  '.resource--can-take',
-].join(',')
+// fork: the list moved to boardAccess.ts, which also gives these Tab stops
 
 function isEnabledAction(element: Element): element is HTMLElement {
   if (!(element instanceof HTMLElement)) return false

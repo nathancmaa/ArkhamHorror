@@ -69,7 +69,6 @@ const submenu = computed(() =>
         :class="{ 'router-link-active': inCustomCards }"
       >{{$t('nav.cardBuilder')}}</router-link>
       <router-link v-if="currentUser" to="/about" class="nav-link">{{$t('nav.about')}}</router-link>
-      <router-link v-if="currentUser" to="/about?support" class="nav-link">{{$t('nav.support')}}</router-link>
       <router-link v-if="currentUser && currentUser.admin" to="/admin" class="nav-link">{{$t('nav.admin')}}</router-link>
     </nav>
 
@@ -94,7 +93,6 @@ const submenu = computed(() =>
       <router-link to="/achievements">{{$t('nav.achievements')}}</router-link>
       <router-link v-if="customCardsEnabled" to="/card-builder">{{$t('nav.cardBuilder')}}</router-link>
       <router-link to="/about">{{$t('nav.about')}}</router-link>
-      <router-link to="/about?support">{{$t('nav.support')}}</router-link>
       <router-link v-if="currentUser && currentUser.admin" to="/admin">{{$t('nav.admin')}}</router-link>
     </div>
   </header>
