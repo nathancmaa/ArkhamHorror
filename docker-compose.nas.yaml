@@ -8,9 +8,12 @@
 #     backend takes hours cold. Build arkhamhorror-web:nas outside Portainer
 #     first, then deploy; pull_policy: never keeps a redeploy from pulling or
 #     building anything else (including halogenandtoast/arkham-horror).
-#     One-off builder on the NAS (reuses the host BuildKit cache):
+#     One-off builder on the NAS (reuses the host BuildKit cache; the raised
+#     open-file limit is required, the NAS default fails the cards-discover
+#     preprocessor with "Too many open files"):
 #       docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
 #         docker:29-cli docker build --progress=plain \
+#         --ulimit nofile=65536:65536 \
 #         --build-arg MAIN_SITE_URL=http://10.1.2.250:3010 \
 #         -t arkhamhorror-web:nas \
 #         'https://github.com/nathancmaa/ArkhamHorror.git#<commit>'
