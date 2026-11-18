@@ -23,6 +23,19 @@ library.add(faCode, faFilter, faBan, faLocationDot, faCircleExclamation, faGhost
 
 installChunkRecovery()
 
+// true at most once a minute per tab (see the 401 handler in bootstrap)
+function recoverOnce(): boolean {
+  const KEY = 'arkham-local-signin-reload'
+  try {
+    const last = Number(sessionStorage.getItem(KEY) ?? 0)
+    if (Date.now() - last < 60_000) return false
+    sessionStorage.setItem(KEY, String(Date.now()))
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function bootstrap() {
   const language = localStorage.getItem('language')
   const naviLanguage = preferredLanguage(navigator.language || 'en')
@@ -94,11 +107,24 @@ async function bootstrap() {
   api.interceptors.response.use(undefined, (error) => {
     const path = window.location.hash.replace(/^#/, '') || '/'
     const onAuthPage = path.startsWith('/sign-in') || path.startsWith('/sign-up')
-    if (error.response?.status === 401 && !onAuthPage) {
+    // Fork: the shared account's own sign-in answers 401 on a first visit,
+    // before it is registered; localSignIn handles that one itself.
+    const url = String(error.config?.url ?? '')
+    const isSignInCall = url === 'authenticate' || url === 'register'
+    if (error.response?.status === 401 && !onAuthPage && !isSignInCall) {
       const store = useUserStore()
       store.logout()
-      store.sessionExpired = true
-      void router.push({ path: '/sign-in', query: { nextUrl: path } })
+      // Fork: no sign-in form. Sign back in to the shared account and reload
+      // in place; at most once a minute, so a call that keeps answering 401
+      // falls back to the form instead of reloading forever.
+      void store.loadUserFromStorage().then(() => {
+        if (store.currentUser && recoverOnce()) {
+          window.location.reload()
+          return
+        }
+        store.sessionExpired = true
+        void router.push({ path: '/sign-in', query: { nextUrl: path } })
+      })
     }
     return Promise.reject(error)
   })

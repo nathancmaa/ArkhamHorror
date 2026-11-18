@@ -6,7 +6,7 @@ import { img, isBroken, markBroken } from '@/assets'
 import Overlays from '@/game/Overlays.vue'
 import { expName } from '@/game/util'
 import NewTableForm from '@/lobby/NewTableForm.vue'
-import { catalog, loadCatalog, signOut, user } from '@/session'
+import { catalog, loadCatalog, user } from '@/session'
 import type { TableSummary } from '@/types'
 
 const route = useRoute()
@@ -122,7 +122,7 @@ onUnmounted(() => {
     <h1>Arkham Horror 3e</h1>
     <span style="flex: 1"></span>
     <span class="pill">{{ me }}</span>
-    <button @click="signOut">Sign out</button>
+    <!-- fork: no Sign out; everyone shares one account (localUser.ts) -->
   </header>
   <div class="screen lobby">
     <p v-if="closedNotice" class="notice">

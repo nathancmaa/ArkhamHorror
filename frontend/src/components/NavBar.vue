@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import type { User } from '@/types'
 import { OnClickOutside } from '@vueuse/components'
 import { storeToRefs } from 'pinia'
@@ -10,7 +10,6 @@ import { useSettings } from '@/stores/settings'
 const expanded = ref(false);
 const mobileOpen = ref(false);
 const route = useRoute()
-const router = useRouter()
 const store = useUserStore()
 const currentUser = computed<User | null>(() => store.currentUser)
 const { customCardsEnabled } = storeToRefs(useSettings())
@@ -50,11 +49,6 @@ const inCustomCards = computed(() =>
 const submenu = computed(() =>
   inCustomCards.value && customCardsEnabled.value ? CUSTOM_CARDS_SUBMENU : null,
 )
-
-async function logout() {
-  await store.logout()
-  router.push({ path: '/' })
-}
 </script>
 
 <template>
@@ -87,13 +81,9 @@ async function logout() {
             <font-awesome-icon icon="angle-down" class="dropdown-icon" :class="{ open: expanded }" />
           </button>
           <div v-if="expanded" class="user-dropdown">
+            <!-- Fork: no log out or sign-in links; everyone shares one account -->
             <router-link @click="expanded = false" to="/settings">{{$t('settings')}}</router-link>
-            <a href="#" @click="logout">{{ $t('deckUi.logout') }}</a>
           </div>
-        </template>
-        <template v-else>
-          <router-link to="/sign-in">{{ $t('logIn') }}</router-link>
-          <router-link to="/sign-up">{{ $t('register') }}</router-link>
         </template>
       </div>
     </OnClickOutside>

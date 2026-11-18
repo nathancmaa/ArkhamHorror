@@ -1,7 +1,8 @@
 import { ref, shallowRef } from 'vue'
 import { ApiError, errorText, getCatalog, whoami } from '@/api'
 import { cardArtPaths } from '@/assets'
-import { clearToken, getToken } from '@/authToken'
+import { clearToken, getToken, setToken } from '@/authToken'
+import { localSignIn } from '@/localUser'
 import type { Catalog, User } from '@/types'
 
 export const user = ref<User | null>(null)
@@ -10,12 +11,21 @@ export const sessionState = ref<'loading' | 'signedIn' | 'signedOut' | 'error'>(
 export const sessionError = ref('')
 
 export async function loadSession() {
-  if (!getToken()) {
-    sessionState.value = 'signedOut'
-    return
-  }
   sessionState.value = 'loading'
   try {
+    // Fork: no sign-in page. Without a token, or with one the server
+    // rejects, sign in to the shared account (localUser.ts) and carry on.
+    if (getToken()) {
+      try {
+        user.value = await whoami()
+        sessionState.value = 'signedIn'
+        return
+      } catch (e) {
+        if (!(e instanceof ApiError && e.status !== 0 && e.status < 500)) throw e
+        clearToken()
+      }
+    }
+    setToken(await localSignIn())
     user.value = await whoami()
     sessionState.value = 'signedIn'
   } catch (e) {

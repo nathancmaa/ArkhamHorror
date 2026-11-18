@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import api from '@/api';
 import { getToken, setToken, clearToken } from '@/authToken';
+import { localSignIn } from '@/localUser';
 import {
   Credentials,
   Registration,
@@ -66,6 +67,26 @@ export const useUserStore = defineStore("user", () => {
       token.value = tokenFromStorage
       await setCurrentUser()
     }
+    // Fork: no sign-in form. A missing or rejected token (setCurrentUser
+    // clears a rejected one) is replaced by the shared account's.
+    if (!currentUser.value) await signInLocally()
+  }
+
+  // one attempt shared by everything that asks at once (router guard, the 401
+  // interceptor), so a first visit does not register the account twice
+  let localSignInRun: Promise<void> | null = null
+  function signInLocally(): Promise<void> {
+    localSignInRun ??= (async () => {
+      try {
+        token.value = await localSignIn()
+        await setCurrentUser()
+      } catch (err) {
+        console.error('Could not sign in to the shared local account', err)
+      } finally {
+        localSignInRun = null
+      }
+    })()
+    return localSignInRun
   }
 
   function signOut() {
