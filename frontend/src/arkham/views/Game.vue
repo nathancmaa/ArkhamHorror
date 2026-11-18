@@ -475,8 +475,15 @@ const watcherCount = ref(0)
 const showShortcuts = ref(false)
 const isMobileViewport = () =>
   typeof window !== 'undefined' && window.matchMedia('(max-width: 800px)').matches
+/* Fork: an iPad (or any screen this narrow, or one held upright) starts with
+ * the log closed too -- open it takes a third of the board. Opening it there is
+ * remembered per game, as on a desktop; phones still always start closed. */
+const isNarrowViewport = () =>
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px), (orientation: portrait)').matches
 const showSidebar = ref(
-  isMobileViewport() ? false : JSON.parse(getGameLocalStorageItem(props.gameId, 'showSidebar') ?? 'true'),
+  isMobileViewport()
+    ? false
+    : JSON.parse(getGameLocalStorageItem(props.gameId, 'showSidebar') ?? (isNarrowViewport() ? 'false' : 'true')),
 )
 const socketError = ref(false)
 const error = ref<string | null>(null)
@@ -2867,7 +2874,7 @@ const gameRoot = ref<HTMLElement | null>(null)
 let uninstallBoardAccess: (() => void) | null = null
 watch(gameRoot, (el) => {
   uninstallBoardAccess?.()
-  uninstallBoardAccess = el ? installBoardAccess(el) : null
+  uninstallBoardAccess = el ? installBoardAccess() : null
 })
 onUnmounted(() => uninstallBoardAccess?.())
 

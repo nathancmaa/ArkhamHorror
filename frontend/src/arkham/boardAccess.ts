@@ -68,12 +68,27 @@ function label(el: HTMLElement): string | null {
   return img?.getAttribute('alt') || null
 }
 
-function sync(root: HTMLElement) {
+/* The board, and #modal, where its pop-ups (questions included) are teleported
+ * to -- outside #game, but every bit as much the board. */
+const SCOPES = ['#game', '#modal']
+
+function inScope(): HTMLElement[] {
+  return SCOPES.map((s) => document.querySelector<HTMLElement>(s)).filter((el): el is HTMLElement => !!el)
+}
+
+function all(selector: string): HTMLElement[] {
+  return inScope().flatMap((scope) => [...scope.querySelectorAll<HTMLElement>(selector)])
+}
+
+function sync() {
   const now = new Set<HTMLElement>()
-  for (const el of root.querySelectorAll<HTMLElement>(ACTIONABLE_SELECTOR)) {
+  for (const el of all(ACTIONABLE_SELECTOR)) {
     // innermost wins: a location's cell and its card would be two stops for one thing
     if (el.querySelector(ACTIONABLE_SELECTOR)) continue
     if (el.matches(NATIVE) && !el.hasAttribute(MARK)) continue
+    // the shared marker also sits on panels (a question) whose buttons are the
+    // controls; those buttons are reachable already
+    if (el.matches('[data-game-actionable="true"]') && el.querySelector(NATIVE)) continue
     now.add(el)
     if (!el.hasAttribute(MARK)) {
       el.setAttribute(MARK, '')
@@ -83,40 +98,43 @@ function sync(root: HTMLElement) {
       if (name && !el.hasAttribute('aria-label')) el.setAttribute('aria-label', name)
     }
   }
-  for (const el of root.querySelectorAll<HTMLElement>(`[${MARK}]`)) {
+  for (const el of all(`[${MARK}]`)) {
     if (now.has(el)) continue
     el.removeAttribute(MARK)
     el.removeAttribute('tabindex')
     if (el.getAttribute('role') === 'button') el.removeAttribute('role')
   }
 
-  const options = [...root.querySelectorAll<HTMLElement>(OPTION_SELECTOR)].filter(isShown)
+  const options = all(OPTION_SELECTOR).filter(isShown)
   const numbered = new Set(options.slice(0, OPTION_KEYS.length))
   options.slice(0, OPTION_KEYS.length).forEach((el, i) => {
     if (el.dataset.choiceKey !== OPTION_KEYS[i]) el.dataset.choiceKey = OPTION_KEYS[i]
   })
-  for (const el of root.querySelectorAll<HTMLElement>('[data-choice-key]')) {
+  for (const el of all('[data-choice-key]')) {
     if (!numbered.has(el)) delete el.dataset.choiceKey
   }
 }
 
-/* Returns the function that undoes it. `root` is the game view's own element,
- * so nothing outside the board (menus, the rest of the site) is touched. */
-export function installBoardAccess(root: HTMLElement): () => void {
+/* Returns the function that undoes it. Game.vue installs it while a game is
+ * open; only #game and #modal are ever touched (see SCOPES). */
+export function installBoardAccess(): () => void {
   let queued = false
   const schedule = () => {
     if (queued) return
     queued = true
-    requestAnimationFrame(() => {
+    // a timer rather than requestAnimationFrame, which never fires in a tab
+    // that is not being drawn -- and the keys must work the moment it is
+    setTimeout(() => {
       queued = false
-      sync(root)
-    })
+      sync()
+    }, 30)
   }
   // only class/disabled changes and new nodes can change what is actionable;
   // the attributes this file sets are not watched, so it cannot feed itself
+  // body rather than the scopes themselves: #modal's content comes and goes
   const observer = new MutationObserver(schedule)
-  observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'disabled'] })
-  sync(root)
+  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'disabled'] })
+  sync()
 
   const onKeydown = (event: KeyboardEvent) => {
     if (event.altKey || event.ctrlKey || event.metaKey || isTyping(event.target)) return
@@ -131,7 +149,7 @@ export function installBoardAccess(root: HTMLElement): () => void {
     }
 
     if (event.code.startsWith('Digit')) {
-      const option = root.querySelector<HTMLElement>(`[data-choice-key="${event.key}"]`)
+      const option = all(`[data-choice-key="${event.key}"]`)[0]
       if (option && isShown(option)) {
         event.preventDefault()
         event.stopPropagation()
@@ -139,8 +157,7 @@ export function installBoardAccess(root: HTMLElement): () => void {
       }
     }
   }
-  // capture on the document: a press with nothing focused lands on <body>,
-  // outside root, and this must run before Game.vue's own document listener
+  // capture on the document, so this runs before Game.vue's own listener
   document.addEventListener('keydown', onKeydown, true)
 
   return () => {
