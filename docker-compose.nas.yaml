@@ -23,9 +23,10 @@
 #   - Optional stack variables (defaults in brackets):
 #       ARKHAM_DATA_DIR     host folder for art and backups
 #                           [/volume1/docker/arkhamhorror]
-#       ARKHAM_ASSET_HOST   where browsers load card art from
-#                           [https://assets.arkhamhorror.app]; set it to an
-#                           empty value once the art is on the NAS
+#       ARKHAM_ASSET_HOST   where browsers load card art from [empty: the
+#                           mounted art folder, filled by nas/README.md];
+#                           set https://assets.arkhamhorror.app to use the
+#                           upstream CDN instead
 #       ARKHAM_BACKUP_AT    daily dump time, HH:MM UTC [11:00]
 #       ARKHAM_BACKUP_KEEP_DAYS  [14]
 #   - Host ports 3010/3011 (3000/3001 are taken on this NAS). Postgres is not
@@ -115,9 +116,10 @@ services:
     environment:
       POSTGRES_PASSWORD: ${ARKHAM_PG_PASSWORD:?set ARKHAM_PG_PASSWORD in the Portainer stack}
       JWT_SECRET: ${ARKHAM_JWT_SECRET:?set ARKHAM_JWT_SECRET in the Portainer stack}
-      # `-` rather than `:-`: a variable that is set but empty means "serve the
-      # art from the mounted folder", which is the point once it is fetched.
-      ASSET_HOST: ${ARKHAM_ASSET_HOST-https://assets.arkhamhorror.app}
+      # Empty means "serve the art from the mounted folder" (fetched per
+      # nas/README.md). An empty default keeps that without a stack variable;
+      # set ARKHAM_ASSET_HOST to the CDN URL to switch back.
+      ASSET_HOST: ${ARKHAM_ASSET_HOST-}
       # Production builds otherwise write custom card art to S3 and fail
       # without AWS credentials. Inside the mounted art folder, so it persists.
       CUSTOM_CARD_ART_DIR: /opt/arkham/src/frontend/dist/img/custom
