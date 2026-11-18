@@ -1,0 +1,87 @@
+# NAS deployment via a Portainer Git stack (environment 3), adapted from the
+# upstream docker-compose.yml. Differences from upstream:
+#   - setup.sql, migrate.sh and migrations are baked into a small db image
+#     (nas/db.Dockerfile) instead of bind-mounted from the checkout.
+#   - The web image is built from this fork and tagged locally; pull_policy
+#     keeps a redeploy from pulling halogenandtoast/arkham-horror instead.
+#   - Secrets come from Portainer stack variables, not a secret file:
+#       ARKHAM_PG_PASSWORD  Postgres password (only applied on first init)
+#       ARKHAM_JWT_SECRET   signs login tokens; the built-in default is public
+#   - Host ports 3010/3011 (3000/3001 are taken on this NAS). Postgres is not
+#     published.
+#   - Card images load from the upstream CDN (ASSET_HOST set explicitly, no
+#     local image mount yet).
+services:
+  db:
+    build:
+      context: .
+      dockerfile: nas/db.Dockerfile
+    image: arkhamhorror-db:nas
+    pull_policy: build
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: arkham_pg_user
+      POSTGRES_PASSWORD: ${ARKHAM_PG_PASSWORD:?set ARKHAM_PG_PASSWORD in the Portainer stack}
+      POSTGRES_DB: arkham-horror-backend
+    user: postgres
+    cap_drop:
+      - ALL
+    mem_limit: 512M
+    cpus: '0.5'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+
+  # One-shot: applies pending SQL migrations, then exits. `web` waits for it.
+  migrate:
+    image: arkhamhorror-db:nas
+    pull_policy: never
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["sh", "/migrate.sh"]
+    environment:
+      POSTGRES_PASSWORD: ${ARKHAM_PG_PASSWORD:?set ARKHAM_PG_PASSWORD in the Portainer stack}
+
+  web:
+    build:
+      context: .
+      args:
+        MAIN_SITE_URL: http://10.1.2.250:3010
+    image: arkhamhorror-web:nas
+    pull_policy: build
+    container_name: arkhamhorror
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${ARKHAM_PG_PASSWORD:?set ARKHAM_PG_PASSWORD in the Portainer stack}
+      JWT_SECRET: ${ARKHAM_JWT_SECRET:?set ARKHAM_JWT_SECRET in the Portainer stack}
+      ASSET_HOST: https://assets.arkhamhorror.app
+      # Production builds otherwise write custom card art to S3 and fail
+      # without AWS credentials. Not persisted across container recreation.
+      CUSTOM_CARD_ART_DIR: /opt/arkham/src/frontend/dist/img/custom
+    ports:
+      - "3010:3000"
+      # third edition frontend
+      - "3011:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # /health is proxied by nginx to the API (a down API gives 502), unlike
+    # unknown paths, which fall through to index.html with 200.
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--output", "/dev/null", "--max-time", "5", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+volumes:
+  pgdata:
