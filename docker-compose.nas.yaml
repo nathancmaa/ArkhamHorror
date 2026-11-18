@@ -1,7 +1,8 @@
 # NAS deployment via a Portainer Git stack (environment 3), adapted from the
-# upstream docker-compose.yml. Differences from upstream:
-#   - setup.sql, migrate.sh and migrations are baked into a small db image
-#     (nas/db.Dockerfile) instead of bind-mounted from the checkout.
+# upstream docker-compose.yml. Setup, card art and restores: nas/README.md.
+# Differences from upstream:
+#   - setup.sql, migrate.sh, migrations and nas/backup.sh are baked into a small
+#     db image (nas/db.Dockerfile) instead of bind-mounted from the checkout.
 #   - The web image is NOT built by this stack. Portainer cancels any stack
 #     deploy (build included) after a hard-coded 15 minutes, and the Haskell
 #     backend takes hours cold. Build arkhamhorror-web:nas outside Portainer
@@ -16,10 +17,18 @@
 #   - Secrets come from Portainer stack variables, not a secret file:
 #       ARKHAM_PG_PASSWORD  Postgres password (only applied on first init)
 #       ARKHAM_JWT_SECRET   signs login tokens; the built-in default is public
+#   - Optional stack variables (defaults in brackets):
+#       ARKHAM_DATA_DIR     host folder for art and backups
+#                           [/volume1/docker/arkhamhorror]
+#       ARKHAM_ASSET_HOST   where browsers load card art from
+#                           [https://assets.arkhamhorror.app]; set it to an
+#                           empty value once the art is on the NAS
+#       ARKHAM_BACKUP_AT    daily dump time, HH:MM UTC [11:00]
+#       ARKHAM_BACKUP_KEEP_DAYS  [14]
 #   - Host ports 3010/3011 (3000/3001 are taken on this NAS). Postgres is not
 #     published.
-#   - Card images load from the upstream CDN (ASSET_HOST set explicitly, no
-#     local image mount yet).
+#   - Absolute host paths only: Portainer's checkout lives inside the Portainer
+#     container, so a relative bind would point at nothing on the NAS.
 services:
   db:
     build:
@@ -27,6 +36,7 @@ services:
       dockerfile: nas/db.Dockerfile
     image: arkhamhorror-db:nas
     pull_policy: build
+    container_name: arkhamhorror-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: arkham_pg_user
@@ -46,6 +56,39 @@ services:
       retries: 12
       start_period: 120s
 
+  # Dumps the database on every deploy and daily after that (nas/backup.sh).
+  # Runs as root so it can write a folder Docker created; DAC_OVERRIDE lets it
+  # write one made in File Station too.
+  backup:
+    image: arkhamhorror-db:nas
+    pull_policy: never
+    container_name: arkhamhorror-backup
+    restart: unless-stopped
+    user: "0"
+    entrypoint: ["sh", "/backup.sh"]
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_OVERRIDE
+    mem_limit: 256M
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_PASSWORD: ${ARKHAM_PG_PASSWORD:?set ARKHAM_PG_PASSWORD in the Portainer stack}
+      ARKHAM_BACKUP_AT: ${ARKHAM_BACKUP_AT:-11:00}
+      ARKHAM_BACKUP_KEEP_DAYS: ${ARKHAM_BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ${ARKHAM_DATA_DIR:-/volume1/docker/arkhamhorror}/backups:/backups
+    # Healthy once the startup dump has been attempted, so `migrate` below
+    # never changes the schema before a copy of it exists.
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/backup-ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 360
+      start_period: 30m
+
   # One-shot: applies pending SQL migrations, then exits. `web` waits for it.
   migrate:
     image: arkhamhorror-db:nas
@@ -53,6 +96,8 @@ services:
     restart: "no"
     depends_on:
       db:
+        condition: service_healthy
+      backup:
         condition: service_healthy
     entrypoint: ["sh", "/migrate.sh"]
     environment:
@@ -67,14 +112,20 @@ services:
     environment:
       POSTGRES_PASSWORD: ${ARKHAM_PG_PASSWORD:?set ARKHAM_PG_PASSWORD in the Portainer stack}
       JWT_SECRET: ${ARKHAM_JWT_SECRET:?set ARKHAM_JWT_SECRET in the Portainer stack}
-      ASSET_HOST: https://assets.arkhamhorror.app
+      # `-` rather than `:-`: a variable that is set but empty means "serve the
+      # art from the mounted folder", which is the point once it is fetched.
+      ASSET_HOST: ${ARKHAM_ASSET_HOST-https://assets.arkhamhorror.app}
       # Production builds otherwise write custom card art to S3 and fail
-      # without AWS credentials. Not persisted across container recreation.
+      # without AWS credentials. Inside the mounted art folder, so it persists.
       CUSTOM_CARD_ART_DIR: /opt/arkham/src/frontend/dist/img/custom
     ports:
       - "3010:3000"
       # third edition frontend
       - "3011:3001"
+    volumes:
+      # Replaces the image's own img/ (icons, tokens); nas/README.md seeds the
+      # folder from the image before the first fetch so nothing goes missing.
+      - ${ARKHAM_DATA_DIR:-/volume1/docker/arkhamhorror}/img:/opt/arkham/src/frontend/dist/img
     depends_on:
       db:
         condition: service_healthy

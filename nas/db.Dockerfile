@@ -8,3 +8,4 @@ FROM postgres:14.6-alpine
 COPY --chmod=0444 setup.sql /docker-entrypoint-initdb.d/create_tables.sql
 COPY --chmod=0444 migrate.sh /migrate.sh
 COPY migrations /migrations
+COPY --chmod=0555 nas/backup.sh /backup.sh

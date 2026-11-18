@@ -26,18 +26,21 @@ async function save() {
   }
 }
 
+// Fork: an issue on this fork with the table downloaded to attach, since the
+// upload api.fileBug does needs upstream's bucket. The window opens before
+// anything is awaited, while the click still counts as a user gesture.
 async function file() {
   busy.value = true
   try {
-    const { url } = await api.fileBug(ctx.tableId)
     // the title says which game, since the issue tracker is shared with Arkham
     const body = encodeURIComponent(
-      `Arkham Horror 3e\n\n${description.value}\n\ntable: ${window.location.href}\nfile: ${url}`,
+      `Arkham Horror 3e\n\n${description.value}\n\ntable: ${window.location.href}\n\nAttach the ah3e-debug-${ctx.tableId}.json this downloaded.`,
     )
     window.open(
-      `https://github.com/halogenandtoast/ArkhamHorror/issues/new?labels=bug&title=${encodeURIComponent(`[3e] ${title.value}`)}&body=${body}&assignee=halogenandtoast&projects=halogenandtoast/2`,
+      `https://github.com/nathancmaa/ArkhamHorror/issues/new?labels=bug&title=${encodeURIComponent(`[3e] ${title.value}`)}&body=${body}`,
       '_blank',
     )
+    await save()
     title.value = ''
     description.value = ''
     dialog.value?.close()
@@ -57,12 +60,12 @@ async function file() {
   <dialog ref="dialog" class="bug-dialog">
     <form @submit.prevent="file">
       <h2>File a bug</h2>
-      <p>The game state is uploaded and linked from the issue, so the bug can be reproduced.</p>
+      <p>The game state is downloaded for you to attach to the issue, so the bug can be reproduced.</p>
       <p class="waiting">A GitHub account is needed to open the issue.</p>
       <input v-model="title" required placeholder="What went wrong, in a line" />
       <textarea v-model="description" required rows="5" placeholder="What you did, and what you expected"></textarea>
       <div class="bug-buttons">
-        <button class="primary" type="submit" :disabled="busy">{{ busy ? 'Uploading…' : 'Submit' }}</button>
+        <button class="primary" type="submit" :disabled="busy">{{ busy ? 'Downloading…' : 'Submit' }}</button>
         <button type="button" @click="dialog?.close()">Cancel</button>
       </div>
     </form>
